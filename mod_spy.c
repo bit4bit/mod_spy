@@ -49,6 +49,7 @@ static struct mod_spy_globals {
 typedef struct spy {
 	const char *uuid;
 	struct spy *next;
+	switch_eavesdrop_flag_t flags;
 } spy_t;
 
 
@@ -91,9 +92,16 @@ static switch_status_t spy_on_exchange_media(switch_core_session_t *session)
 {
 	switch_channel_t *channel = switch_core_session_get_channel(session);
 	const char *spy_uuid = switch_channel_get_variable(channel, "spy_uuid");
+	spy_t *spy = switch_channel_get_private(channel, "_spy_");
+	switch_eavesdrop_flag_t flags = ED_DTMF;
 
 	if (spy_uuid) {
-		if (switch_ivr_eavesdrop_session(session, spy_uuid, NULL, ED_DTMF) != SWITCH_STATUS_SUCCESS) {
+		if (spy) {
+			flags = spy->flags;
+			switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "Spy uses flags from channel\n");
+		}
+		
+		if (switch_ivr_eavesdrop_session(session, spy_uuid, NULL, flags) != SWITCH_STATUS_SUCCESS) {
 			switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, "Can't eavesdrop on uuid %s\n", spy_uuid);
 		}
 	}
@@ -218,6 +226,7 @@ static switch_status_t process_event(switch_event_t *event)
 						switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "UserSpy retrieved uuid %s for key %s, activating eavesdrop\n", my_uuid, key);
 
 						switch_channel_set_variable(channel, "spy_uuid", my_uuid);
+						switch_channel_set_private(channel, "_spy_", (void *) spy);
 						found++;
 
 						switch_channel_set_state(channel, CS_EXCHANGE_MEDIA);
@@ -296,11 +305,38 @@ SWITCH_STANDARD_APP(userspy_function)
 			char *uuid = switch_core_session_get_uuid(session);
 			switch_status_t status;
 			spy_t *spy = NULL;
+			switch_eavesdrop_flag_t flags = ED_DTMF;
+			
+			const char *enable_dtmf = switch_channel_get_variable(channel, "spy_enable_dtmf");
+			const char *bridge_aleg = switch_channel_get_variable(channel, "spy_bridge_aleg");
+			const char *bridge_bleg = switch_channel_get_variable(channel, "spy_bridge_bleg");
+			const char *whisper_aleg = switch_channel_get_variable(channel, "spy_whisper_aleg");
+			const char *whisper_bleg = switch_channel_get_variable(channel, "spy_whisper_bleg");
+			
+			if (enable_dtmf) {
+				flags = switch_true(enable_dtmf) ? ED_DTMF : ED_NONE;
+			}
+
+			if (switch_true(whisper_aleg)) {
+				flags |= ED_MUX_READ;
+			}
+			if (switch_true(whisper_bleg)) {
+				flags |= ED_MUX_WRITE;
+			}
+
+			/* Defaults to both, if neither is set */
+			if (switch_true(bridge_aleg)) {
+				flags |= ED_BRIDGE_READ;
+			}
+			if (switch_true(bridge_bleg)) {
+				flags |= ED_BRIDGE_WRITE;
+			}
 
 			spy = switch_core_session_alloc(session, sizeof(spy_t));
 			switch_assert(spy != NULL);
 			spy->uuid = uuid;
-
+			spy->flags = flags;
+			
 			switch_thread_rwlock_wrlock(globals.spy_hash_lock);
 
 			spy->next = (spy_t *) switch_core_hash_find(globals.spy_hash, argv[0]);
