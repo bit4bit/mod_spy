@@ -307,11 +307,11 @@ SWITCH_STANDARD_APP(userspy_function)
 			spy_t *spy = NULL;
 			switch_eavesdrop_flag_t flags = ED_DTMF;
 			
-			const char *enable_dtmf = switch_channel_get_variable(channel, "spy_enable_dtmf");
-			const char *bridge_aleg = switch_channel_get_variable(channel, "spy_bridge_aleg");
-			const char *bridge_bleg = switch_channel_get_variable(channel, "spy_bridge_bleg");
-			const char *whisper_aleg = switch_channel_get_variable(channel, "spy_whisper_aleg");
-			const char *whisper_bleg = switch_channel_get_variable(channel, "spy_whisper_bleg");
+			const char *enable_dtmf = switch_channel_get_variable(channel, "userspy_enable_dtmf");
+			const char *bridge_aleg = switch_channel_get_variable(channel, "userspy_bridge_aleg");
+			const char *bridge_bleg = switch_channel_get_variable(channel, "userspy_bridge_bleg");
+			const char *whisper_aleg = switch_channel_get_variable(channel, "userspy_whisper_aleg");
+			const char *whisper_bleg = switch_channel_get_variable(channel, "userspy_whisper_bleg");
 			
 			if (enable_dtmf) {
 				flags = switch_true(enable_dtmf) ? ED_DTMF : ED_NONE;
